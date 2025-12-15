@@ -38,33 +38,23 @@ jobs:
         echo "Runner OS: $RUNNER_OS"
         echo "=============================="
     
-    # Шаг 4: Скачиваем зависимости и создаем go.sum
+    # Шаг 4: Скачиваем зависимости (go mod tidy создаст go.sum)
     - name: Download dependencies
       run: go mod tidy
     
-    # Шаг 5: Условное кэширование (только если go.sum существует)
-    - name: Cache Go modules
-      uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        # Ключ кэша зависит от ОС и содержимого go.sum, если он есть
-        key: ${{ runner.os }}-go-mod-${{ hashFiles('go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-mod-
-    
-    # Шаг 6: Проверяем, что код компилируется
+    # Шаг 5: Проверяем, что код компилируется
     - name: Check compilation
       run: go vet ./...
     
-    # Шаг 7: Собираем
+    # Шаг 6: Собираем
     - name: Build
       run: go build -o myapp .
     
-    # Шаг 8: Запускаем тесты
+    # Шаг 7: Запускаем тесты
     - name: Run tests
       run: go test -v ./...
     
-    # Шаг 9: Сохраняем бинарник (версия v4)
+    # Шаг 8: Сохраняем бинарник
     - name: Upload binary
       uses: actions/upload-artifact@v4
       with:
