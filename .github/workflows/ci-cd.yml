@@ -1,15 +1,63 @@
-name: Generate go.sum
-on: [push]
+name: CI/CD Pipeline
+
+# Триггеры
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+# Задачи
 jobs:
-  generate:
-    runs-on: ubuntu-latest
+  # Job 1: Сборка и тестирование на разных ОС
+  build-and-test:
+    # Запускаем на 3 разных ОС
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    runs-on: ${{ matrix.os }}
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-      - run: go mod tidy  # Эта команда создаст go.sum
-      - uses: actions/upload-artifact@v4
-        with:
-          name: go-sum-file
-          path: go.sum
+    # Шаг 1: Получаем код
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # Шаг 2: Устанавливаем Go
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    # Шаг 3: Проверяем окружение
+    - name: Show environment info
+      run: |
+        echo "=== Environment Information ==="
+        go version
+        echo "OS: ${{ runner.os }}"
+        echo "Runner OS: $RUNNER_OS"
+        echo "=============================="
+    
+    # Шаг 4: Скачиваем зависимости (go mod tidy создаст go.sum)
+    - name: Download dependencies
+      run: go mod tidy
+    
+    # Шаг 5: Проверяем, что код компилируется
+    - name: Check compilation
+      run: go vet ./...
+    
+    # Шаг 6: Собираем
+    - name: Build
+      run: go build -o myapp .
+    
+    # Шаг 7: Запускаем тесты
+    - name: Run tests
+      run: go test -v ./...
+    
+    # Шаг 8: Сохраняем бинарник
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: myapp-${{ runner.os }}
+        path: myapp*
+        if-no-files-found: error
