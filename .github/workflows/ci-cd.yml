@@ -38,13 +38,11 @@ jobs:
         echo "Runner OS: $RUNNER_OS"
         echo "=============================="
     
-    # Шаг 4: Кэшируем зависимости
+    # Шаг 4: Кэшируем зависимости (ИСПРАВЛЕННЫЙ БЛОК)
     - name: Cache Go modules
       uses: actions/cache@v3
       with:
-        path: |
-          ~/go/pkg/mod
-          /go/pkg/mod
+        path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
     
     # Шаг 5: Скачиваем зависимости
@@ -70,6 +68,3 @@ jobs:
         name: myapp-${{ runner.os }}
         path: myapp*
         if-no-files-found: error
-        path: |
-          myapp-*
-          !*.go  # исключаем исходные файлы
