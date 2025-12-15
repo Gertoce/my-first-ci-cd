@@ -1,0 +1,94 @@
+name: CI/CD Pipeline
+
+# Шаг 1: Настраиваем триггеры (когда запускать workflow)
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+# Шаг 2: Определяем jobs (задачи), которые будут выполняться
+jobs:
+  # Первая job: Сборка и тестирование на разных ОС
+  build-and-test:
+    # Запускаем эту job на 4 разных операционных системах одновременно
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
+        include:
+          - os: macos-14
+            arch: arm64  # Apple Silicon
+          - os: macos-13
+            arch: x64    # Intel Mac
+          - os: ubuntu-latest
+            arch: x64
+          - os: windows-latest
+            arch: x64
+    
+    # Выбираем runner (виртуальную машину) для каждой ОС
+    runs-on: ${{ matrix.os }}
+    
+    # Шаги, которые будут выполнены на каждой виртуальной машине
+    steps:
+    # Шаг 1: Получаем код из репозитория
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # Шаг 2: Устанавливаем Go (GitHub Actions сам найдет нужную версию)
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    # Шаг 3: Проверяем версию Go и платформу (для отладки)
+    - name: Show Go version and platform info
+      run: |
+        go version
+        echo "Running on: ${{ runner.os }}"
+        echo "OS: ${{ matrix.os }}"
+        echo "Architecture: ${{ matrix.arch || 'x64' }}"
+    
+    # Шаг 4: Загружаем зависимости Go (оптимизация кэширования)
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    # Шаг 5: Скачиваем зависимости проекта
+    - name: Download dependencies
+      run: go mod download
+    
+    # Шаг 6: Собираем проект
+    - name: Build
+      run: go build -v ./...
+      # Флаг -v показывает подробную информацию о сборке
+    
+    # Шаг 7: Запускаем тесты
+    - name: Test
+      run: go test -v ./...
+      # Флаг -v показывает подробный вывод тестов
+      # ./... означает "запустить во всех пакетах проекта"
+    
+    # Шаг 8: Создаём бинарный файл для текущей ОС
+    - name: Create binary for current OS
+      run: |
+        # Для Windows используем расширение .exe
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          go build -o myapp-${{ runner.os }}-${{ matrix.arch || 'x64' }}.exe
+          echo "Binary created: myapp-${{ runner.os }}-${{ matrix.arch || 'x64' }}.exe"
+        else
+          go build -o myapp-${{ runner.os }}-${{ matrix.arch || 'x64' }}
+          echo "Binary created: myapp-${{ runner.os }}-${{ matrix.arch || 'x64' }}"
+        fi
+    
+    # Шаг 9: Сохраняем собранный бинарник как артефакт
+    - name: Upload binary as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: binary-${{ runner.os }}-${{ matrix.arch || 'x64' }}
+        path: |
+          myapp-*
+          !*.go  # исключаем исходные файлы
