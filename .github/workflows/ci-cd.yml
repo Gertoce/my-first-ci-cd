@@ -38,18 +38,19 @@ jobs:
         echo "Runner OS: $RUNNER_OS"
         echo "=============================="
     
-    # Шаг 4: Генерируем/обновляем go.sum (ВЫПОЛНЯЕТСЯ ДО КЭША)
-    - name: Download and tidy dependencies
+    # Шаг 4: Скачиваем зависимости и создаем go.sum
+    - name: Download dependencies
       run: go mod tidy
     
-    # Шаг 5: Кэшируем зависимости (ТЕПЕРЬ go.sum УЖЕ СУЩЕСТВУЕТ)
+    # Шаг 5: Условное кэширование (только если go.sum существует)
     - name: Cache Go modules
       uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        # Ключ кэша зависит от ОС и содержимого go.sum, если он есть
+        key: ${{ runner.os }}-go-mod-${{ hashFiles('go.sum') }}
         restore-keys: |
-          ${{ runner.os }}-go-
+          ${{ runner.os }}-go-mod-
     
     # Шаг 6: Проверяем, что код компилируется
     - name: Check compilation
