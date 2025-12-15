@@ -1,3 +1,23 @@
+name: CI/CD Pipeline
+
+# Триггеры
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+# Задачи
+jobs:
+  # Job 1: Сборка и тестирование на разных ОС
+  build-and-test:
+    # Запускаем на 3 разных ОС
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    runs-on: ${{ matrix.os }}
+    
     steps:
     # Шаг 1: Получаем код
     - name: Checkout code
