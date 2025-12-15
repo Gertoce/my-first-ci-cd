@@ -3,8 +3,12 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, master ]
+    # Release будет создаваться ТОЛЬКО при пуше новых тегов (например, v1.0.0)
+    tags:
+      - 'v*'  # Паттерн для тегов версий: v1.0.0, v1.2.3 и т.д.
 
 jobs:
+  # Job 1: Сборка и тесты (остаётся без изменений)
   build-and-test:
     strategy:
       matrix:
@@ -35,8 +39,39 @@ jobs:
       - name: Test
         run: go test -v ./...
 
-      - name: Upload Artifact
+      - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
-          name: myapp-${{ runner.os }}
+          name: binary-${{ runner.os }}
           path: myapp-*
+
+  # Job 2: Создание релиза (НОВЫЙ ШАГ)
+  create-release:
+    # Эта job зависит от успеха build-and-test
+    needs: build-and-test
+    # И запускается только при пуше тега (v1.0.0 и т.д.)
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write  # Даёт разрешение создавать релизы
+    
+    steps:
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist  # Все бинарники скачаются сюда
+
+      - name: List downloaded files
+        run: ls -laR ./dist  # Покажем структуру скачанных файлов
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          # Имя релиза = имя тега (например, v1.0.0)
+          name: ${{ github.ref_name }}
+          # Автоматически сгенерированные примечания к релизу
+          generate_release_notes: true
+          # Папка с файлами для релиза
+          files: |
+            ./dist/**/myapp-*
