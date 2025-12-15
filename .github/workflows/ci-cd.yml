@@ -1,94 +1,75 @@
 name: CI/CD Pipeline
 
-# Шаг 1: Настраиваем триггеры (когда запускать workflow)
+# Триггеры
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
 
-# Шаг 2: Определяем jobs (задачи), которые будут выполняться
+# Задачи
 jobs:
-  # Первая job: Сборка и тестирование на разных ОС
+  # Job 1: Сборка и тестирование на разных ОС
   build-and-test:
-    # Запускаем эту job на 4 разных операционных системах одновременно
+    # Запускаем на 3 разных ОС
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
-        include:
-          - os: macos-14
-            arch: arm64  # Apple Silicon
-          - os: macos-13
-            arch: x64    # Intel Mac
-          - os: ubuntu-latest
-            arch: x64
-          - os: windows-latest
-            arch: x64
+        os: [ubuntu-latest, windows-latest, macos-latest]
     
-    # Выбираем runner (виртуальную машину) для каждой ОС
     runs-on: ${{ matrix.os }}
     
-    # Шаги, которые будут выполнены на каждой виртуальной машине
     steps:
-    # Шаг 1: Получаем код из репозитория
+    # Шаг 1: Получаем код
     - name: Checkout code
       uses: actions/checkout@v4
     
-    # Шаг 2: Устанавливаем Go (GitHub Actions сам найдет нужную версию)
-    - name: Set up Go
+    # Шаг 2: Устанавливаем Go
+    - name: Setup Go
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
     
-    # Шаг 3: Проверяем версию Go и платформу (для отладки)
-    - name: Show Go version and platform info
+    # Шаг 3: Проверяем окружение
+    - name: Show environment info
       run: |
+        echo "=== Environment Information ==="
         go version
-        echo "Running on: ${{ runner.os }}"
-        echo "OS: ${{ matrix.os }}"
-        echo "Architecture: ${{ matrix.arch || 'x64' }}"
+        echo "OS: ${{ runner.os }}"
+        echo "Runner OS: $RUNNER_OS"
+        echo "=============================="
     
-    # Шаг 4: Загружаем зависимости Go (оптимизация кэширования)
+    # Шаг 4: Кэшируем зависимости
     - name: Cache Go modules
       uses: actions/cache@v3
       with:
-        path: ~/go/pkg/mod
+        path: |
+          ~/go/pkg/mod
+          /go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
     
-    # Шаг 5: Скачиваем зависимости проекта
+    # Шаг 5: Скачиваем зависимости
     - name: Download dependencies
-      run: go mod download
+      run: go mod tidy
     
-    # Шаг 6: Собираем проект
+    # Шаг 6: Проверяем, что код компилируется
+    - name: Check compilation
+      run: go vet ./...
+    
+    # Шаг 7: Собираем
     - name: Build
-      run: go build -v ./...
-      # Флаг -v показывает подробную информацию о сборке
+      run: go build -o myapp .
     
-    # Шаг 7: Запускаем тесты
-    - name: Test
+    # Шаг 8: Запускаем тесты
+    - name: Run tests
       run: go test -v ./...
-      # Флаг -v показывает подробный вывод тестов
-      # ./... означает "запустить во всех пакетах проекта"
     
-    # Шаг 8: Создаём бинарный файл для текущей ОС
-    - name: Create binary for current OS
-      run: |
-        # Для Windows используем расширение .exe
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          go build -o myapp-${{ runner.os }}-${{ matrix.arch || 'x64' }}.exe
-          echo "Binary created: myapp-${{ runner.os }}-${{ matrix.arch || 'x64' }}.exe"
-        else
-          go build -o myapp-${{ runner.os }}-${{ matrix.arch || 'x64' }}
-          echo "Binary created: myapp-${{ runner.os }}-${{ matrix.arch || 'x64' }}"
-        fi
-    
-    # Шаг 9: Сохраняем собранный бинарник как артефакт
-    - name: Upload binary as artifact
+    # Шаг 9: Сохраняем бинарник
+    - name: Upload binary
       uses: actions/upload-artifact@v3
       with:
-        name: binary-${{ runner.os }}-${{ matrix.arch || 'x64' }}
+        name: myapp-${{ runner.os }}
+        path: myapp*
+        if-no-files-found: error
         path: |
           myapp-*
           !*.go  # исключаем исходные файлы
